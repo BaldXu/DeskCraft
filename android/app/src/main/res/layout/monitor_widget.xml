@@ -1,0 +1,71 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- 系统监控 widget 布局（M4）。
+
+     背景由 MonitorWidgetProvider 按配置绘制成 Bitmap 塞进 monitor_bg
+     （与数字时钟共用 WidgetBackgroundPainter：纯色 / 渐变 / 图片 + G2 圆角）；
+     文本默认值仅作首帧兜底，实际颜色 / 字号 / 内容由 Provider 按配置与
+     最新采样数据覆盖。 -->
+<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/monitor_root"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent">
+
+    <ImageView
+        android:id="@+id/monitor_bg"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:contentDescription="@null"
+        android:scaleType="fitXY" />
+
+    <LinearLayout
+        android:id="@+id/monitor_content"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:gravity="center_vertical"
+        android:orientation="vertical"
+        android:paddingStart="16dp"
+        android:paddingTop="10dp"
+        android:paddingEnd="16dp"
+        android:paddingBottom="10dp">
+
+        <TextView
+            android:id="@+id/monitor_temp"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:fontFamily="sans-serif-medium"
+            android:singleLine="true"
+            android:text="电池 --"
+            android:textColor="@color/widget_primary"
+            android:textSize="17sp" />
+
+        <TextView
+            android:id="@+id/monitor_cpu"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="2dp"
+            android:singleLine="true"
+            android:text="CPU --"
+            android:textColor="@color/widget_secondary"
+            android:textSize="13sp" />
+
+        <TextView
+            android:id="@+id/monitor_mem"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:singleLine="true"
+            android:text="内存 --"
+            android:textColor="@color/widget_secondary"
+            android:textSize="13sp" />
+
+        <TextView
+            android:id="@+id/monitor_note"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="2dp"
+            android:ellipsize="end"
+            android:singleLine="true"
+            android:textColor="@color/widget_tertiary"
+            android:textSize="11sp"
+            android:visibility="gone" />
+    </LinearLayout>
+</FrameLayout>

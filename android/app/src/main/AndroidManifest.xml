@@ -1,4 +1,9 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
+
+    <!-- 监控组件按配置间隔刷新；Android 12+ 需要该权限才能精确闹钟，
+         未授予时 Provider 自动回落 setAndAllowWhileIdle（非精确，Doze 节流）。 -->
+    <uses-permission android:name="android.permission.SCHEDULE_EXACT_ALARM" />
+
     <application
         android:label="DeskCraft"
         android:name="${applicationName}"
@@ -37,6 +42,20 @@
             <meta-data
                 android:name="android.appwidget.provider"
                 android:resource="@xml/clock_widget_info" />
+        </receiver>
+
+        <!-- 系统监控桌面组件（M4）：定时刷新由 AlarmManager 指回本 receiver -->
+        <receiver
+            android:name=".MonitorWidgetProvider"
+            android:exported="false"
+            android:label="系统监控">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+                <action android:name="com.deskcraft.desk_craft.MONITOR_REFRESH" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/monitor_widget_info" />
         </receiver>
 
         <!-- Don't delete the meta-data below.

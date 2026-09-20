@@ -2,11 +2,15 @@ import 'package:flutter/material.dart';
 import 'package:home_widget/home_widget.dart';
 
 import 'models/clock_config.dart';
+import 'models/monitor_config.dart';
 import 'pages/clock_config_page.dart';
+import 'pages/monitor_config_page.dart';
 import 'root_bridge.dart';
 import 'services/clock_config_store.dart';
+import 'services/monitor_config_store.dart';
 import 'theme/app_theme.dart';
 import 'widgets/clock_preview.dart';
+import 'widgets/monitor_preview.dart';
 
 void main() {
   WidgetsFlutterBinding.ensureInitialized();
@@ -15,6 +19,9 @@ void main() {
 
 /// M3 数字时钟组件在原生侧注册的 Provider 类名。
 const _kClockProviderName = 'ClockWidgetProvider';
+
+/// M4 系统监控组件在原生侧注册的 Provider 类名。
+const _kMonitorProviderName = 'MonitorWidgetProvider';
 
 class DeskCraftApp extends StatelessWidget {
   const DeskCraftApp({super.key});
@@ -40,8 +47,11 @@ class WorkshopHomePage extends StatefulWidget {
 
 class _WorkshopHomePageState extends State<WorkshopHomePage> {
   ClockConfig _config = const ClockConfig();
+  MonitorConfig _monitorConfig = const MonitorConfig();
   bool _pinnedOnHome = false;
+  bool _monitorPinnedOnHome = false;
   DateTime? _lastSyncAt;
+  DateTime? _monitorLastSyncAt;
 
   @override
   void initState() {
@@ -51,34 +61,55 @@ class _WorkshopHomePageState extends State<WorkshopHomePage> {
 
   Future<void> _loadInitial() async {
     final config = await ClockConfigStore.load();
+    final monitorConfig = await MonitorConfigStore.load();
     final pinned = await _isClockPinned();
+    final monitorPinned = await _isMonitorPinned();
     if (!mounted) return;
     setState(() {
       _config = config;
+      _monitorConfig = monitorConfig;
       _pinnedOnHome = pinned;
+      _monitorPinnedOnHome = monitorPinned;
       _lastSyncAt = ClockConfigStore.lastSyncAt;
+      _monitorLastSyncAt = MonitorConfigStore.lastSyncAt;
     });
   }
 
-  Future<bool> _isClockPinned() async {
+  Future<bool> _isClockPinned() => _isProviderPinned(_kClockProviderName);
+
+  Future<bool> _isMonitorPinned() => _isProviderPinned(_kMonitorProviderName);
+
+  Future<bool> _isProviderPinned(String providerName) async {
     try {
       final widgets = await HomeWidget.getInstalledWidgets();
       return widgets.any(
-        (w) => w.androidClassName?.contains(_kClockProviderName) ?? false,
+        (w) => w.androidClassName?.contains(providerName) ?? false,
       );
     } catch (_) {
       return false; // 桌面不支持查询时降级显示"未检测"
     }
   }
 
-  /// 一键添加到桌面（Android 8+ 系统弹窗确认）。
-  Future<void> _requestPin() async {
+  /// 一键添加数字时钟到桌面（Android 8+ 系统弹窗确认）。
+  Future<void> _requestPin() => _requestProviderPin(_kClockProviderName);
+
+  /// 一键添加系统监控到桌面（Android 8+ 系统弹窗确认）。
+  Future<void> _requestMonitorPin() =>
+      _requestProviderPin(_kMonitorProviderName);
+
+  Future<void> _requestProviderPin(String providerName) async {
     try {
-      await HomeWidget.requestPinWidget(androidName: _kClockProviderName);
+      await HomeWidget.requestPinWidget(androidName: providerName);
       await Future<void>.delayed(const Duration(seconds: 3));
-      final pinned = await _isClockPinned();
+      final pinned = await _isProviderPinned(providerName);
       if (!mounted) return;
-      setState(() => _pinnedOnHome = pinned);
+      setState(() {
+        if (providerName == _kClockProviderName) {
+          _pinnedOnHome = pinned;
+        } else {
+          _monitorPinnedOnHome = pinned;
+        }
+      });
     } catch (_) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
@@ -91,6 +122,15 @@ class _WorkshopHomePageState extends State<WorkshopHomePage> {
     await Navigator.of(context).push<bool>(
       MaterialPageRoute<bool>(
         builder: (_) => ClockConfigPage(initial: _config),
+      ),
+    );
+    await _loadInitial();
+  }
+
+  Future<void> _openMonitorConfig() async {
+    await Navigator.of(context).push<bool>(
+      MaterialPageRoute<bool>(
+        builder: (_) => MonitorConfigPage(initial: _monitorConfig),
       ),
     );
     await _loadInitial();
@@ -109,6 +149,14 @@ class _WorkshopHomePageState extends State<WorkshopHomePage> {
             lastSyncAt: _lastSyncAt,
             onTap: _openClockConfig,
             onPin: _requestPin,
+          ),
+          const SizedBox(height: 16),
+          _MonitorWidgetCard(
+            config: _monitorConfig,
+            pinned: _monitorPinnedOnHome,
+            lastSyncAt: _monitorLastSyncAt,
+            onTap: _openMonitorConfig,
+            onPin: _requestMonitorPin,
           ),
           const SizedBox(height: 16),
           const _PlannedWidgetCard(
@@ -187,6 +235,82 @@ class _ClockWidgetCard extends StatelessWidget {
               ),
               const SizedBox(height: 12),
               ClockPreview(config: config),
+              const SizedBox(height: 10),
+              Row(
+                children: [
+                  Text(syncLabel, style: Theme.of(context).textTheme.bodySmall),
+                  const Spacer(),
+                  TextButton.icon(
+                    onPressed: onPin,
+                    icon: const Icon(Icons.add, size: 18),
+                    label: const Text('添加到桌面'),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// 系统监控组件卡片：实时预览 + 状态徽章，点击进入配置页。
+class _MonitorWidgetCard extends StatelessWidget {
+  const _MonitorWidgetCard({
+    required this.config,
+    required this.pinned,
+    required this.lastSyncAt,
+    required this.onTap,
+    required this.onPin,
+  });
+
+  final MonitorConfig config;
+  final bool pinned;
+  final DateTime? lastSyncAt;
+  final VoidCallback onTap;
+  final VoidCallback onPin;
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    final syncLabel = lastSyncAt == null
+        ? '尚未同步'
+        : '最后同步 ${lastSyncAt!.toIso8601String().substring(11, 19)}';
+    return Card(
+      clipBehavior: Clip.antiAlias,
+      child: InkWell(
+        onTap: onTap,
+        child: Padding(
+          padding: const EdgeInsets.all(16),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  Icon(Icons.thermostat, color: scheme.primary),
+                  const SizedBox(width: 8),
+                  const Text(
+                    '系统监控',
+                    style: TextStyle(fontSize: 17, fontWeight: FontWeight.w600),
+                  ),
+                  const Spacer(),
+                  _PinnedBadge(pinned: pinned),
+                  const SizedBox(width: 4),
+                  Icon(
+                    Icons.chevron_right,
+                    size: 20,
+                    color: scheme.onSurfaceVariant,
+                  ),
+                ],
+              ),
+              const SizedBox(height: 4),
+              Text(
+                '电池温度 · CPU · 内存 · 点击卡片配置样式',
+                style: Theme.of(context).textTheme.bodySmall,
+              ),
+              const SizedBox(height: 12),
+              MonitorPreview(config: config),
               const SizedBox(height: 10),
               Row(
                 children: [
