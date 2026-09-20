@@ -5,8 +5,10 @@ import 'package:image_picker/image_picker.dart';
 import 'package:path_provider/path_provider.dart';
 
 import '../models/clock_config.dart';
+import '../models/info_bit.dart';
 import '../models/monitor_config.dart';
 import '../services/monitor_config_store.dart';
+import '../widgets/info_bit_tile.dart';
 import '../widgets/monitor_preview.dart';
 
 /// 系统监控样式配置页 —— 背景 / 圆角 / 文字 / 刷新间隔 / 高温警示 / 显示项 + 实时预览。
@@ -189,20 +191,22 @@ class _MonitorConfigPageState extends State<MonitorConfigPage> {
                 _update((c) => c.copyWith(align: s.first)),
           ),
           const SizedBox(height: 12),
-          _SectionTitle('刷新间隔'),
-          SegmentedButton<int>(
-            segments: const [
-              ButtonSegment(value: 30, label: Text('30秒')),
-              ButtonSegment(value: 60, label: Text('1分钟')),
-              ButtonSegment(value: 300, label: Text('5分钟')),
-            ],
-            selected: {_config.refreshIntervalSeconds},
-            onSelectionChanged: (s) =>
-                _update((c) => c.copyWith(refreshIntervalSeconds: s.first)),
+          _SectionTitle('信息位'),
+          InfoBitTile(
+            bit: _config.batteryTempBit,
+            onChanged: (b) => _update((c) => c.copyWith(batteryTempBit: b)),
+          ),
+          InfoBitTile(
+            bit: _config.cpuBit,
+            onChanged: (b) => _update((c) => c.copyWith(cpuBit: b)),
+          ),
+          InfoBitTile(
+            bit: _config.memBit,
+            onChanged: (b) => _update((c) => c.copyWith(memBit: b)),
           ),
           const SizedBox(height: 6),
           Text(
-            '桌面组件按此间隔定时采样刷新（间隔越长越省电）',
+            '桌面组件按最快的「每 ${RefreshRate.fromSeconds(_config.effectiveRefreshSeconds).label}」刷新（信息位全关则不调度）',
             style: Theme.of(context).textTheme.bodySmall,
           ),
           const SizedBox(height: 12),
@@ -220,26 +224,6 @@ class _MonitorConfigPageState extends State<MonitorConfigPage> {
           Text(
             '预览模拟温度 42.5°C，把阈值调到 42.5°C 以下即可预览变红效果',
             style: Theme.of(context).textTheme.bodySmall,
-          ),
-          const SizedBox(height: 12),
-          _SectionTitle('显示项'),
-          SwitchListTile(
-            contentPadding: EdgeInsets.zero,
-            title: const Text('电池温度'),
-            value: _config.showBatteryTemp,
-            onChanged: (v) => _update((c) => c.copyWith(showBatteryTemp: v)),
-          ),
-          SwitchListTile(
-            contentPadding: EdgeInsets.zero,
-            title: const Text('CPU 占用与频率'),
-            value: _config.showCpu,
-            onChanged: (v) => _update((c) => c.copyWith(showCpu: v)),
-          ),
-          SwitchListTile(
-            contentPadding: EdgeInsets.zero,
-            title: const Text('内存占用'),
-            value: _config.showMem,
-            onChanged: (v) => _update((c) => c.copyWith(showMem: v)),
           ),
           const SizedBox(height: 24),
           FilledButton.icon(

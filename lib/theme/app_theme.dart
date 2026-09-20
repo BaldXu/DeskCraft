@@ -1,3 +1,4 @@
+import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 
 /// DeskCraft App 主题系统（M3）。
@@ -17,6 +18,14 @@ abstract final class AppTheme {
     );
     return base.copyWith(
       appBarTheme: const AppBarTheme(centerTitle: false),
+      // 页面转场：Android 用预测性返回转场（手势拖拽 → 松手有完整的
+      // 进入/退出补间，不会瞬间消失），iOS 用 Cupertino 左右滑转场。
+      pageTransitionsTheme: const PageTransitionsTheme(
+        builders: {
+          TargetPlatform.android: PredictiveBackPageTransitionsBuilder(),
+          TargetPlatform.iOS: CupertinoPageTransitionsBuilder(),
+        },
+      ),
       cardTheme: CardThemeData(
         elevation: 0,
         color: base.colorScheme.surfaceContainerLow,

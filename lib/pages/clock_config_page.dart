@@ -5,8 +5,10 @@ import 'package:image_picker/image_picker.dart';
 import 'package:path_provider/path_provider.dart';
 
 import '../models/clock_config.dart';
+import '../models/info_bit.dart';
 import '../services/clock_config_store.dart';
 import '../widgets/clock_preview.dart';
+import '../widgets/info_bit_tile.dart';
 
 /// 数字时钟样式配置页 —— 背景 / 圆角 / 字号 / 内容开关 + 实时预览。
 class ClockConfigPage extends StatefulWidget {
@@ -220,17 +222,18 @@ class _ClockConfigPageState extends State<ClockConfigPage> {
             value: _config.showSeconds,
             onChanged: (v) => _update((c) => c.copyWith(showSeconds: v)),
           ),
-          SwitchListTile(
-            contentPadding: EdgeInsets.zero,
-            title: const Text('显示日期'),
-            value: _config.showDate,
-            onChanged: (v) => _update((c) => c.copyWith(showDate: v)),
+          InfoBitTile(
+            bit: _config.dateBit,
+            onChanged: (b) => _update((c) => c.copyWith(dateBit: b)),
           ),
-          SwitchListTile(
-            contentPadding: EdgeInsets.zero,
-            title: const Text('显示星期'),
-            value: _config.showWeekday,
-            onChanged: (v) => _update((c) => c.copyWith(showWeekday: v)),
+          InfoBitTile(
+            bit: _config.weekdayBit,
+            onChanged: (b) => _update((c) => c.copyWith(weekdayBit: b)),
+          ),
+          const SizedBox(height: 6),
+          Text(
+            '整卡按最快的「每 ${RefreshRate.fromSeconds(_config.effectiveRefreshSeconds).label}」走时刷新',
+            style: Theme.of(context).textTheme.bodySmall,
           ),
           const SizedBox(height: 12),
           _SectionTitle('附加文案'),

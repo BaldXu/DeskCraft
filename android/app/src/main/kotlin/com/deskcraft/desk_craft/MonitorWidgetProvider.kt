@@ -328,7 +328,8 @@ class MonitorWidgetProvider : HomeWidgetProvider() {
         private const val H_PADDING_DP = 16f
         private const val V_PADDING_DP = 10f
 
-        private const val MIN_INTERVAL_S = 15
+        // 信息位级调频（M4.1）：最快信息位 1 秒 1 次（AlarmManager 精确闹钟）
+        private const val MIN_INTERVAL_S = 1
         private const val MAX_INTERVAL_S = 3600
     }
 }
