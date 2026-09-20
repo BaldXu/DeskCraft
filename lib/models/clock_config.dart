@@ -13,9 +13,12 @@ class ClockConfig {
     this.bgStyle = ClockBgStyle.solid,
     this.bgColor = 0xE61C1C22,
     this.bgGradientIndex = 0,
+    this.bgImagePath = '',
     this.cornerRadiusDp = 22,
     this.timeSizeSp = 38,
+    this.timeAlign = ClockTimeAlign.left,
     this.use24h = true,
+    this.showSeconds = false,
     this.showDate = true,
     this.showWeekday = true,
     this.extraText = 'DeskCraft - M1',
@@ -29,9 +32,15 @@ class ClockConfig {
     ),
     bgColor: (json['bgColor'] as num?)?.toInt() ?? 0xE61C1C22,
     bgGradientIndex: (json['bgGradientIndex'] as num?)?.toInt() ?? 0,
+    bgImagePath: json['bgImagePath'] as String? ?? '',
     cornerRadiusDp: (json['cornerRadiusDp'] as num?)?.toInt() ?? 22,
     timeSizeSp: (json['timeSizeSp'] as num?)?.toInt() ?? 38,
+    timeAlign: ClockTimeAlign.values.firstWhere(
+      (a) => a.name == json['timeAlign'],
+      orElse: () => ClockTimeAlign.left,
+    ),
     use24h: json['use24h'] as bool? ?? true,
+    showSeconds: json['showSeconds'] as bool? ?? false,
     showDate: json['showDate'] as bool? ?? true,
     showWeekday: json['showWeekday'] as bool? ?? true,
     extraText: json['extraText'] as String? ?? 'DeskCraft - M1',
@@ -55,9 +64,16 @@ class ClockConfig {
 
   /// [kGradients] 的下标。
   final int bgGradientIndex;
+
+  /// 背景图片的本地绝对路径（bgStyle == image 时生效）。
+  final String bgImagePath;
   final int cornerRadiusDp;
   final int timeSizeSp;
+
+  /// 时间内容块的水平对齐方式（时间 + 日期 + 附加文案整体）。
+  final ClockTimeAlign timeAlign;
   final bool use24h;
+  final bool showSeconds;
   final bool showDate;
   final bool showWeekday;
   final String extraText;
@@ -67,9 +83,12 @@ class ClockConfig {
     'bgStyle': bgStyle.name,
     'bgColor': bgColor,
     'bgGradientIndex': bgGradientIndex,
+    'bgImagePath': bgImagePath,
     'cornerRadiusDp': cornerRadiusDp,
     'timeSizeSp': timeSizeSp,
+    'timeAlign': timeAlign.name,
     'use24h': use24h,
+    'showSeconds': showSeconds,
     'showDate': showDate,
     'showWeekday': showWeekday,
     'extraText': extraText,
@@ -80,9 +99,12 @@ class ClockConfig {
     ClockBgStyle? bgStyle,
     int? bgColor,
     int? bgGradientIndex,
+    String? bgImagePath,
     int? cornerRadiusDp,
     int? timeSizeSp,
+    ClockTimeAlign? timeAlign,
     bool? use24h,
+    bool? showSeconds,
     bool? showDate,
     bool? showWeekday,
     String? extraText,
@@ -91,17 +113,24 @@ class ClockConfig {
     bgStyle: bgStyle ?? this.bgStyle,
     bgColor: bgColor ?? this.bgColor,
     bgGradientIndex: bgGradientIndex ?? this.bgGradientIndex,
+    bgImagePath: bgImagePath ?? this.bgImagePath,
     cornerRadiusDp: cornerRadiusDp ?? this.cornerRadiusDp,
     timeSizeSp: timeSizeSp ?? this.timeSizeSp,
+    timeAlign: timeAlign ?? this.timeAlign,
     use24h: use24h ?? this.use24h,
+    showSeconds: showSeconds ?? this.showSeconds,
     showDate: showDate ?? this.showDate,
     showWeekday: showWeekday ?? this.showWeekday,
     extraText: extraText ?? this.extraText,
   );
 
   /// 当前背景在预览中的装饰（纯色或渐变）。
-  Decoration get previewDecoration => BoxDecoration(
-    borderRadius: BorderRadius.circular(cornerRadiusDp.toDouble()),
+  /// 预览背景装饰：G2 连续曲率圆角（ContinuousRectangleBorder，曲率在
+  /// 直线衔接处为 0），与原生 smoothCornerPath 同一算法，观感一致。
+  Decoration get previewDecoration => ShapeDecoration(
+    shape: ContinuousRectangleBorder(
+      borderRadius: BorderRadius.circular(cornerRadiusDp.toDouble()),
+    ),
     color: bgStyle == ClockBgStyle.solid ? Color(bgColor) : null,
     gradient: bgStyle == ClockBgStyle.gradient
         ? kGradients[bgGradientIndex.clamp(0, kGradients.length - 1)].$1
@@ -109,8 +138,11 @@ class ClockConfig {
   );
 }
 
-/// 背景样式：纯色 / 预置渐变。
-enum ClockBgStyle { solid, gradient }
+/// 背景样式：纯色 / 预置渐变 / 本地图片（cover 裁剪不拉伸）。
+enum ClockBgStyle { solid, gradient, image }
+
+/// 时间内容块水平对齐：居左 / 居中。
+enum ClockTimeAlign { left, center }
 
 /// 预置渐变档位：(Flutter 渐变, 原生资源索引)。
 /// 原生侧对应 res/drawable/bg_widget_gradient_`<index>`.xml。

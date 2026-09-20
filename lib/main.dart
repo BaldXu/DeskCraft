@@ -275,6 +275,7 @@ class _RootProbeCard extends StatefulWidget {
 class _RootProbeCardState extends State<_RootProbeCard> {
   RootProbe? _probe;
   bool _probing = false;
+  bool _isCollapsed = true;
 
   @override
   void initState() {
@@ -317,6 +318,13 @@ class _RootProbeCardState extends State<_RootProbeCard> {
                   onPressed: _probing ? null : _refresh,
                   icon: const Icon(Icons.refresh, size: 20),
                 ),
+                IconButton(
+                  onPressed: () => setState(() => _isCollapsed = !_isCollapsed),
+                  icon: Icon(
+                    _isCollapsed ? Icons.expand_more : Icons.expand_less,
+                    size: 20,
+                  ),
+                ),
               ],
             ),
             const SizedBox(height: 4),
@@ -324,16 +332,28 @@ class _RootProbeCardState extends State<_RootProbeCard> {
               'libsu · 白名单只读命令 · 读 sysfs 温度 / CPU 频率',
               style: Theme.of(context).textTheme.bodySmall,
             ),
-            const Divider(height: 24),
-            if (_probing && probe == null)
-              const Padding(
-                padding: EdgeInsets.symmetric(vertical: 8),
-                child: Text('探测中…（首次会触发 Magisk 授权弹窗，请选择允许）'),
-              )
-            else if (probe == null)
-              const Text('尚未探测')
-            else
-              _RootProbeBody(probe: probe),
+            AnimatedCrossFade(
+              duration: const Duration(milliseconds: 200),
+              crossFadeState: _isCollapsed
+                  ? CrossFadeState.showFirst
+                  : CrossFadeState.showSecond,
+              firstChild: const SizedBox(width: double.infinity),
+              secondChild: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Divider(height: 24),
+                  if (_probing && probe == null)
+                    const Padding(
+                      padding: EdgeInsets.symmetric(vertical: 8),
+                      child: Text('探测中…（首次会触发 Magisk 授权弹窗，请选择允许）'),
+                    )
+                  else if (probe == null)
+                    const Text('尚未探测')
+                  else
+                    _RootProbeBody(probe: probe),
+                ],
+              ),
+            ),
           ],
         ),
       ),

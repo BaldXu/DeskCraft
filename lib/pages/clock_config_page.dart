@@ -1,4 +1,8 @@
+import 'dart:io';
+
 import 'package:flutter/material.dart';
+import 'package:image_picker/image_picker.dart';
+import 'package:path_provider/path_provider.dart';
 
 import '../models/clock_config.dart';
 import '../services/clock_config_store.dart';
@@ -29,6 +33,61 @@ class _ClockConfigPageState extends State<ClockConfigPage> {
 
   void _update(ClockConfig Function(ClockConfig) transform) {
     setState(() => _config = transform(_config));
+  }
+
+  /// 从相册选图并持久化到应用文档目录，作为时钟背景（cover 裁剪不拉伸）。
+  Future<void> _pickBackgroundImage() async {
+    try {
+      final picked = await ImagePicker().pickImage(
+        source: ImageSource.gallery,
+        imageQuality: 90,
+        maxWidth: 2048,
+      );
+      if (picked == null) return;
+      final path = await _persistBackground(picked);
+      if (!mounted) return;
+      _update(
+        (c) => c.copyWith(bgImagePath: path, bgStyle: ClockBgStyle.image),
+      );
+    } catch (_) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context)
+        ..hideCurrentSnackBar()
+        ..showSnackBar(const SnackBar(content: Text('选择图片失败，请重试')));
+    }
+  }
+
+  /// 把选中的图片复制到应用文档目录（相册临时路径可能被系统清理），返回持久路径。
+  Future<String> _persistBackground(XFile picked) async {
+    final docs = await getApplicationDocumentsDirectory();
+    final bgDir = Directory('${docs.path}/clock_bg');
+    if (!bgDir.existsSync()) bgDir.createSync(recursive: true);
+    final ext = picked.name.contains('.')
+        ? picked.name.substring(picked.name.lastIndexOf('.')).toLowerCase()
+        : '.jpg';
+    final target =
+        '${bgDir.path}/bg_${DateTime.now().millisecondsSinceEpoch}$ext';
+    await File(picked.path).copy(target);
+    // 清理被替换的旧背景图
+    final old = _config.bgImagePath;
+    if (old.startsWith(bgDir.path)) {
+      try {
+        File(old).deleteSync();
+      } catch (_) {}
+    }
+    return target;
+  }
+
+  /// 移除自定义背景：删除图片文件并回落到纯色样式。
+  void _removeBackground() {
+    final old = _config.bgImagePath;
+    if (old.isNotEmpty) {
+      try {
+        final file = File(old);
+        if (file.existsSync()) file.deleteSync();
+      } catch (_) {}
+    }
+    _update((c) => c.copyWith(bgImagePath: '', bgStyle: ClockBgStyle.solid));
   }
 
   Future<void> _save() async {
@@ -79,23 +138,36 @@ class _ClockConfigPageState extends State<ClockConfigPage> {
             segments: const [
               ButtonSegment(value: ClockBgStyle.solid, label: Text('纯色')),
               ButtonSegment(value: ClockBgStyle.gradient, label: Text('渐变')),
+              ButtonSegment(value: ClockBgStyle.image, label: Text('图片')),
             ],
             selected: {_config.bgStyle},
-            onSelectionChanged: (s) =>
-                _update((c) => c.copyWith(bgStyle: s.first)),
+            onSelectionChanged: (s) {
+              final next = s.first;
+              // 选"图片"但还没有图时直接拉起相册；已有图则直接切换
+              if (next == ClockBgStyle.image && _config.bgImagePath.isEmpty) {
+                _pickBackgroundImage();
+              } else {
+                _update((c) => c.copyWith(bgStyle: next));
+              }
+            },
           ),
           const SizedBox(height: 12),
-          if (_config.bgStyle == ClockBgStyle.solid)
-            _ColorPalette(
+          switch (_config.bgStyle) {
+            ClockBgStyle.solid => _ColorPalette(
               palette: kSolidPalette,
               selected: _config.bgColor,
               onSelected: (v) => _update((c) => c.copyWith(bgColor: v)),
-            )
-          else
-            _GradientPalette(
+            ),
+            ClockBgStyle.gradient => _GradientPalette(
               selected: _config.bgGradientIndex,
               onSelected: (v) => _update((c) => c.copyWith(bgGradientIndex: v)),
             ),
+            ClockBgStyle.image => _ImagePickerRow(
+              imagePath: _config.bgImagePath,
+              onPick: _pickBackgroundImage,
+              onRemove: _removeBackground,
+            ),
+          },
           const SizedBox(height: 20),
           _SectionTitle('文字颜色'),
           _ColorPalette(
@@ -109,7 +181,7 @@ class _ClockConfigPageState extends State<ClockConfigPage> {
             label: '${_config.cornerRadiusDp}dp',
             value: _config.cornerRadiusDp.toDouble(),
             min: 0,
-            max: 32,
+            max: 120,
             onChanged: (v) =>
                 _update((c) => c.copyWith(cornerRadiusDp: v.round())),
           ),
@@ -119,8 +191,19 @@ class _ClockConfigPageState extends State<ClockConfigPage> {
             label: '${_config.timeSizeSp}sp',
             value: _config.timeSizeSp.toDouble(),
             min: 24,
-            max: 64,
+            max: 90,
             onChanged: (v) => _update((c) => c.copyWith(timeSizeSp: v.round())),
+          ),
+          const SizedBox(height: 12),
+          _SectionTitle('对齐方式'),
+          SegmentedButton<ClockTimeAlign>(
+            segments: const [
+              ButtonSegment(value: ClockTimeAlign.left, label: Text('居左')),
+              ButtonSegment(value: ClockTimeAlign.center, label: Text('居中')),
+            ],
+            selected: {_config.timeAlign},
+            onSelectionChanged: (s) =>
+                _update((c) => c.copyWith(timeAlign: s.first)),
           ),
           const SizedBox(height: 12),
           _SectionTitle('内容开关'),
@@ -129,6 +212,13 @@ class _ClockConfigPageState extends State<ClockConfigPage> {
             title: const Text('24 小时制'),
             value: _config.use24h,
             onChanged: (v) => _update((c) => c.copyWith(use24h: v)),
+          ),
+          SwitchListTile(
+            contentPadding: EdgeInsets.zero,
+            title: const Text('显示秒'),
+            subtitle: const Text('关闭后桌面组件按分钟刷新，更省电'),
+            value: _config.showSeconds,
+            onChanged: (v) => _update((c) => c.copyWith(showSeconds: v)),
           ),
           SwitchListTile(
             contentPadding: EdgeInsets.zero,
@@ -272,6 +362,67 @@ class _ColorPalette extends StatelessWidget {
             ),
             onTap: () => onSelected(value),
           ),
+      ],
+    );
+  }
+}
+
+/// 图片背景选择行：缩略图 + 选图 / 移除按钮。
+class _ImagePickerRow extends StatelessWidget {
+  const _ImagePickerRow({
+    required this.imagePath,
+    required this.onPick,
+    required this.onRemove,
+  });
+
+  final String imagePath;
+  final VoidCallback onPick;
+  final VoidCallback onRemove;
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    final hasImage = imagePath.isNotEmpty;
+    return Row(
+      children: [
+        Container(
+          width: 56,
+          height: 56,
+          clipBehavior: Clip.antiAlias,
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(12),
+            color: scheme.surfaceContainerHighest.withValues(alpha: 0.4),
+          ),
+          child: hasImage
+              ? Image.file(File(imagePath), fit: BoxFit.cover)
+              : Icon(Icons.image_outlined, color: scheme.onSurfaceVariant),
+        ),
+        const SizedBox(width: 12),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                '按 cover 居中裁剪，不拉伸变形',
+                style: Theme.of(context).textTheme.bodySmall,
+              ),
+              const SizedBox(height: 6),
+              Row(
+                children: [
+                  FilledButton.tonalIcon(
+                    onPressed: onPick,
+                    icon: const Icon(Icons.photo_library_outlined, size: 16),
+                    label: Text(hasImage ? '更换图片' : '选择图片'),
+                  ),
+                  if (hasImage) ...[
+                    const SizedBox(width: 8),
+                    TextButton(onPressed: onRemove, child: const Text('移除')),
+                  ],
+                ],
+              ),
+            ],
+          ),
+        ),
       ],
     );
   }
