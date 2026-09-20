@@ -1,0 +1,37 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- 自定义组件 widget 布局（M6）。
+
+     内容由 Flutter 编辑器渲染成整幅 PNG 位图（图层画布 250×110dp 基准），
+     经 home_widget 落盘后由 CustomWidgetProvider 塞进 custom_widget_image，
+     fitXY 等比适配 widget 实际尺寸；首次添加 / 位图缺失时显示 fallback 提示。 -->
+<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/custom_widget_root"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent">
+
+    <ImageView
+        android:id="@+id/custom_widget_image"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:contentDescription="@null"
+        android:scaleType="fitXY"
+        android:visibility="gone" />
+
+    <LinearLayout
+        android:id="@+id/custom_widget_fallback"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:background="#F0101018"
+        android:gravity="center"
+        android:orientation="vertical">
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:drawablePadding="6dp"
+            android:gravity="center"
+            android:text="打开 App 定制组件"
+            android:textColor="@color/widget_secondary"
+            android:textSize="13sp" />
+    </LinearLayout>
+</FrameLayout>

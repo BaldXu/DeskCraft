@@ -15,12 +15,7 @@ object RootDataSource {
     private const val TAG = "DeskCraftRoot"
 
     init {
-        Shell.enableVerboseLogging = false
-        Shell.setDefaultBuilder(
-            Shell.Builder.create()
-                .setFlags(Shell.FLAG_REDIRECT_STDERR)
-                .setTimeout(15)
-        )
+        ShellConfig.ensure()
     }
 
     // ---- 白名单命令（固定字符串，只读）----

@@ -59,6 +59,31 @@
                 android:resource="@xml/monitor_widget_info" />
         </receiver>
 
+        <!-- 自定义组件桌面组件（M6）：展示 Flutter 图层画布渲染的位图，
+             AlarmManager 周期采样（写入变量快照）后经 home_widget 后台链路重渲染 -->
+        <receiver
+            android:name=".CustomWidgetProvider"
+            android:exported="false"
+            android:label="自定义组件">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+                <action android:name="com.deskcraft.desk_craft.CUSTOM_WIDGET_REFRESH" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/custom_widget_info" />
+        </receiver>
+
+        <!-- home_widget 后台回调入口（M6）：接收 HomeWidgetBackgroundIntent.getBroadcast，
+             拉起 headless Flutter 引擎执行 Dart 侧顶层回调（重渲染位图） -->
+        <receiver
+            android:name="es.antonborri.home_widget.HomeWidgetBackgroundReceiver"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="es.antonborri.home_widget.action.BACKGROUND" />
+            </intent-filter>
+        </receiver>
+
         <!-- Don't delete the meta-data below.
              This is used by the Flutter tool to generate GeneratedPluginRegistrant.java -->
         <meta-data

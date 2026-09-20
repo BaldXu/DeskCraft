@@ -32,13 +32,7 @@ object MonitorDataSource {
     private val WHITELIST = listOf(CMD_CPU_USAGE, CMD_MEM, CMD_CPU_FREQ)
 
     init {
-        // 与 RootDataSource 相同的全局 Shell 配置（幂等）
-        Shell.enableVerboseLogging = false
-        Shell.setDefaultBuilder(
-            Shell.Builder.create()
-                .setFlags(Shell.FLAG_REDIRECT_STDERR)
-                .setTimeout(15)
-        )
+        ShellConfig.ensure()
     }
 
     // ---- /proc/stat 采样持久化 ----

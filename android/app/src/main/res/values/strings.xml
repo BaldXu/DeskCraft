@@ -2,4 +2,5 @@
 <resources>
     <string name="clock_widget_description">数字时钟（DeskCraft）</string>
     <string name="monitor_widget_description">系统监控（DeskCraft）</string>
+    <string name="custom_widget_description">自定义组件（DeskCraft）</string>
 </resources>

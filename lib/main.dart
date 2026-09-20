@@ -1,11 +1,14 @@
 import 'package:flutter/material.dart';
 
 import 'pages/clock_collection_page.dart';
+import 'pages/custom_widget_collection_page.dart';
 import 'pages/monitor_collection_page.dart';
+import 'services/custom_widget_callback.dart';
 import 'theme/app_theme.dart';
 
 void main() {
   WidgetsFlutterBinding.ensureInitialized();
+  registerCustomWidgetBackgroundCallback();
   runApp(const DeskCraftApp());
 }
 
@@ -70,10 +73,13 @@ class WorkshopHomePage extends StatelessWidget {
             subtitle: '月视图 · 上桌即用 · 样式可定制',
           ),
           const SizedBox(height: 12),
-          const _PlannedWidgetCard(
+          _CategoryCard(
             icon: Icons.design_services,
-            title: '组件编辑器',
-            subtitle: '拖拽拼接时间 / 温度等模块，自由定制专属布局',
+            title: '自定义组件',
+            subtitle: '图层画布拖摆 · 公式驱动 · 编辑器自由定制',
+            count: null,
+            onTap: () =>
+                _openCategory(context, const CustomWidgetCollectionPage()),
           ),
           const SizedBox(height: 24),
           Text(
@@ -89,7 +95,8 @@ class WorkshopHomePage extends StatelessWidget {
   }
 }
 
-/// 类目入口卡：图标 + 标题 + 副标题 + 已完成组件数，点击进入组件库页。
+/// 类目入口卡：图标 + 标题 + 副标题 + 已完成组件数（null 时显示「自由定制」），
+/// 点击进入组件库页。
 class _CategoryCard extends StatelessWidget {
   const _CategoryCard({
     required this.icon,
@@ -102,7 +109,7 @@ class _CategoryCard extends StatelessWidget {
   final IconData icon;
   final String title;
   final String subtitle;
-  final int count;
+  final int? count;
   final VoidCallback onTap;
 
   @override
@@ -146,7 +153,10 @@ class _CategoryCard extends StatelessWidget {
                 ),
               ),
               const SizedBox(width: 8),
-              Text('$count 个组件', style: Theme.of(context).textTheme.bodySmall),
+              Text(
+                count == null ? '自由定制' : '$count 个组件',
+                style: Theme.of(context).textTheme.bodySmall,
+              ),
               const SizedBox(width: 2),
               Icon(
                 Icons.chevron_right,

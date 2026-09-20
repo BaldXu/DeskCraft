@@ -63,6 +63,7 @@ Flutter 负责：数据计算、UI 样式、配置/编辑器、把内容渲染�
 5. **秒级实时只有悬浮窗能做**：widget 上即使 root 也不优雅（每秒唤醒+渲染耗电）。
 6. 深色模式/多尺寸适配 → onAppWidgetOptionsChanged 处理。
 7. 中文农历 → lunar 包。
+8. **信息位级调频（M4.1 已落地）**：每个信息模块是独立 InfoBit（enabled + refreshSeconds，见 lib/models/info_bit.dart，RefreshRate 共 8 档），整卡刷新周期取启用位中最快者，硬上限 1 秒 1 次（原生 MIN_INTERVAL_S=1）。配置 JSON 双写兼容：新版 bits 结构 + 旧扁平 key（原生仍读旧 key），渐进迁移。
 
 ## 六、组件清单（V1）
 
@@ -74,12 +75,12 @@ Flutter 负责：数据计算、UI 样式、配置/编辑器、把内容渲染�
 
 ## 七、里程碑
 
-- **M1 骨架**：Flutter 工程 + home_widget 接通 + 数字时钟上桌（验证：桌面添加→更新→点击全链路）
-- **M2 root 验证**：libsu 接入 + 真机读温度/频率成功（最关键未知数，尽早验证）
-- **M3 管理器**：组件卡片页 + 配置页 + 主题系统
-- **M4 日历 + 监控 widget**（系统监控 ✅ 已上桌，剩余：日历组件）
-- **M5 悬浮窗**
-- **M6 KWGT 子集编辑器**：公式引擎 + 图层画布 + 全局变量 + 触控 + 预览 → 位图上桌
+- **M1 骨架** ✅：Flutter 工程 + home_widget 接通 + 数字时钟上桌
+- **M2 root 验证** ✅：libsu 接入 + 真机读温度/频率成功
+- **M3 管理器** ✅：组件卡片页 + 配置页 + 主题系统（含 M3.5 G2 连续圆角 / 对齐方式 / 字号圆角放宽）
+- **M4 时钟 + 监控** ✅：数字时钟 / 系统监控全链路上桌 + M4.1 信息位解耦（日历组件暂跳过，需要时再补）
+- **M5 悬浮窗**（暂缓）
+- **M6 KWGT 子集编辑器** ⬅️ **当前方向（已选定）**：公式引擎 + 图层画布 + 全局变量 + 触控 + 预览 → 位图上桌
 
 分层交付原则：**严格按里程碑推进，先把"编辑器→公式→上桌→刷新→点击"闭环跑通，不要一上来复刻 KWGT 全部**。
 
@@ -92,6 +93,27 @@ Flutter 负责：数据计算、UI 样式、配置/编辑器、把内容渲染�
 3. **配置页**：单组件的样式/行为配置（ClockConfigPage / MonitorConfigPage）。
 
 支撑代码：`WidgetPinService`（上桌检测/一键添加）、`WidgetEntryCard`（成品卡通用组件），新增组件按"类目页成品卡 + 配置页"模式挂接即可。
+
+## 七.6 当前进度快照（2026-09-20，新会话交接用）
+
+最新 commit：`2e4ec73`（首页三层架构 + 预返回转场动画 + 信息位解耦 + 卡片文本溢出修复）。
+
+- **已完成**：M1 / M2 / M3 / M3.5 / M4（数字时钟 + 系统监控全链路）/ M4.1 信息位解耦 / 首页三层架构 / 全局页面转场（Android PredictiveBack + iOS Cupertino，manifest enableOnBackInvokedCallback）/ 溢出治理（Flutter 侧 Expanded + softWrap，原生布局 ellipsize="end"）/ **M6 ①公式引擎 + ②图层画布最小闭环**（详见下方）
+- **M6 已落地（① + ②）**：
+  - ①公式引擎（lib/formula/）：`$...$` 词法/解析/求值/模板渲染/刷新周期分析，34 个单测全过
+  - ②图层画布最小闭环（lib/editor/ + lib/services/custom_widget_*）：
+    - `layout_model.dart`：矩形 + 文本两类图层（WidgetLayout/RectLayer/TextLayer，JSON 序列化宽松回落，refreshSeconds 聚合）
+    - `layout_painter.dart` + `layout_bitmap.dart`：纯 dart:ui PictureRecorder 渲染管线（headless 后台引擎无 implicitView，renderFlutterWidget 不可用，故自研，前后台共用同一 painter）
+    - `custom_widget_store.dart`：布局库存储 + 上桌推送（exportLayoutPng → saveFile 落盘 → saveWidgetData 写布局/dpr/刷新周期 → updateWidget）
+    - `custom_widget_callback.dart`：home_widget 后台回调（顶层函数 + vm:entry-point，读布局/变量快照 → 重渲染位图 → updateWidget）
+    - `custom_widget_editor_page.dart` + `layer_property_editor.dart`：编辑器（画布拖摆/点选/图层列表 z 序/属性面板/公式变量 chips/缩放条/重命名/保存/上桌）
+    - `custom_widget_collection_page.dart`：类目页（布局库管理，新建/编辑/删除）+ 首页真实入口（替换占位卡）
+    - 原生壳：`CustomWidgetProvider.kt`（位图 decodeFile 塞 ImageView fitXY + fallback 兜底 + AlarmManager 按 refreshSeconds 调度 + 采样写入变量快照 KEY_VARS_JSON → HomeWidgetBackgroundIntent 触发后台回调）+ `custom_widget.xml` + `custom_widget_info.xml` + manifest（CustomWidgetProvider + HomeWidgetBackgroundReceiver 声明）
+    - **修 bug**：libsu `Shell.setDefaultBuilder` 进程内仅允许一次，RootDataSource/MonitorDataSource 各自 init 调用导致 widget receiver 唤醒时崩溃（IllegalStateException）→ 收敛到 `ShellConfig.ensure()` 幂等单点
+- **下一步（M6 ③）**：全局变量（用户自定义 key/value + 公式引用）与触控（图层点击事件）；可选：编辑器多布局管理增强
+- **挂起**：M5 悬浮窗（暂缓）、M4 日历组件（跳过）
+- **环境**：fvm Flutter 3.44.8；验证命令 `fvm flutter analyze`、`fvm flutter build apk --debug` + `adb install -r`
+- **配置 JSON 兼容约定**：改字段结构时保留旧扁平 key 双写（原生 provider 宽松解析缺省回落），新结构逐步迁移
 
 ## 八、风险
 
