@@ -14,10 +14,7 @@ class RootBridge {
       final raw = await _channel.invokeMethod<Map<dynamic, dynamic>>('probe');
       return RootProbe.fromMap(raw?.cast<String, dynamic>() ?? const {});
     } on PlatformException catch (e) {
-      return RootProbe(
-        rooted: false,
-        error: '通道异常：${e.code} ${e.message}',
-      );
+      return RootProbe(rooted: false, error: '通道异常：${e.code} ${e.message}');
     } on MissingPluginException {
       return const RootProbe(error: '通道未注册');
     }
@@ -55,11 +52,10 @@ class RootProbe {
     return RootProbe(
       rooted: map['rooted'] as bool? ?? false,
       tookMs: (map['tookMs'] as num?)?.toInt(),
-      cpuFreqsKHz:
-          (map['cpuFreqsKHz'] as List<dynamic>? ?? [])
-              .whereType<num>()
-              .map((n) => n.toInt())
-              .toList(),
+      cpuFreqsKHz: (map['cpuFreqsKHz'] as List<dynamic>? ?? [])
+          .whereType<num>()
+          .map((n) => n.toInt())
+          .toList(),
       thermalZones: zones,
       memInfoKb: mem,
       error: map['error'] as String?,

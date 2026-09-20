@@ -1,18 +1,20 @@
 import 'package:flutter/material.dart';
 import 'package:home_widget/home_widget.dart';
 
+import 'models/clock_config.dart';
+import 'pages/clock_config_page.dart';
 import 'root_bridge.dart';
+import 'services/clock_config_store.dart';
+import 'theme/app_theme.dart';
+import 'widgets/clock_preview.dart';
 
 void main() {
   WidgetsFlutterBinding.ensureInitialized();
   runApp(const DeskCraftApp());
 }
 
-/// M1 数字时钟组件在原生侧注册的 Provider 类名。
+/// M3 数字时钟组件在原生侧注册的 Provider 类名。
 const _kClockProviderName = 'ClockWidgetProvider';
-
-/// 数字时钟副标题在 SharedPreferences 的 key（原生侧同款）。
-const _kClockExtraTextKey = 'clock_extra_text';
 
 class DeskCraftApp extends StatelessWidget {
   const DeskCraftApp({super.key});
@@ -22,17 +24,13 @@ class DeskCraftApp extends StatelessWidget {
     return MaterialApp(
       title: 'DeskCraft',
       debugShowCheckedModeBanner: false,
-      theme: ThemeData(
-        useMaterial3: true,
-        brightness: Brightness.dark,
-        colorSchemeSeed: const Color(0xFF7C8CF8),
-      ),
+      theme: AppTheme.dark(),
       home: const WorkshopHomePage(),
     );
   }
 }
 
-/// 组件工坊首页 —— M1 骨架：数字时钟卡片 + 数据桥验证。
+/// 组件工坊首页 —— 组件卡片列表：数字时钟（可配置）+ 规划中占位 + Root 数据源。
 class WorkshopHomePage extends StatefulWidget {
   const WorkshopHomePage({super.key});
 
@@ -41,11 +39,9 @@ class WorkshopHomePage extends StatefulWidget {
 }
 
 class _WorkshopHomePageState extends State<WorkshopHomePage> {
-  final _extraController = TextEditingController();
-
+  ClockConfig _config = const ClockConfig();
   bool _pinnedOnHome = false;
   DateTime? _lastSyncAt;
-  String? _lastError;
 
   @override
   void initState() {
@@ -53,18 +49,15 @@ class _WorkshopHomePageState extends State<WorkshopHomePage> {
     _loadInitial();
   }
 
-  @override
-  void dispose() {
-    _extraController.dispose();
-    super.dispose();
-  }
-
   Future<void> _loadInitial() async {
-    final saved = await HomeWidget.getWidgetData<String>(_kClockExtraTextKey);
+    final config = await ClockConfigStore.load();
     final pinned = await _isClockPinned();
     if (!mounted) return;
-    if (saved != null) _extraController.text = saved;
-    setState(() => _pinnedOnHome = pinned);
+    setState(() {
+      _config = config;
+      _pinnedOnHome = pinned;
+      _lastSyncAt = ClockConfigStore.lastSyncAt;
+    });
   }
 
   Future<bool> _isClockPinned() async {
@@ -78,31 +71,6 @@ class _WorkshopHomePageState extends State<WorkshopHomePage> {
     }
   }
 
-  /// 数据桥验证：saveWidgetData → updateWidget → 桌面组件文本变化。
-  Future<void> _syncToHome() async {
-    setState(() {
-      _lastError = null;
-    });
-    try {
-      await HomeWidget.saveWidgetData<String>(
-        _kClockExtraTextKey,
-        _extraController.text.trim(),
-      );
-      final ok = await HomeWidget.updateWidget(
-        androidName: _kClockProviderName,
-      );
-      if (!mounted) return;
-      if (ok == true) {
-        setState(() => _lastSyncAt = DateTime.now());
-        _showSnackBar('已推送到桌面组件');
-      } else {
-        _showSnackBar('推送失败：updateWidget 返回 false');
-      }
-    } catch (e) {
-      setState(() => _lastError = e.toString());
-    }
-  }
-
   /// 一键添加到桌面（Android 8+ 系统弹窗确认）。
   Future<void> _requestPin() async {
     try {
@@ -113,100 +81,184 @@ class _WorkshopHomePageState extends State<WorkshopHomePage> {
       setState(() => _pinnedOnHome = pinned);
     } catch (_) {
       if (!mounted) return;
-      _showSnackBar('当前桌面不支持一键添加，请长按桌面 → 添加组件手动添加');
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('当前桌面不支持一键添加，请长按桌面 → 添加组件手动添加')),
+      );
     }
   }
 
-  void _showSnackBar(String message) {
-    ScaffoldMessenger.of(context)
-      ..hideCurrentSnackBar()
-      ..showSnackBar(SnackBar(content: Text(message)));
+  Future<void> _openClockConfig() async {
+    await Navigator.of(context).push<bool>(
+      MaterialPageRoute<bool>(
+        builder: (_) => ClockConfigPage(initial: _config),
+      ),
+    );
+    await _loadInitial();
   }
 
   @override
   Widget build(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
     return Scaffold(
       appBar: AppBar(title: const Text('DeskCraft · 组件工坊')),
       body: ListView(
         padding: const EdgeInsets.all(16),
         children: [
-          Card(
-            child: Padding(
-              padding: const EdgeInsets.all(16),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    children: [
-                      Icon(Icons.schedule, color: scheme.primary),
-                      const SizedBox(width: 8),
-                      const Text(
-                        '数字时钟',
-                        style: TextStyle(
-                          fontSize: 17,
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
-                      const Spacer(),
-                      _PinnedBadge(pinned: _pinnedOnHome),
-                    ],
-                  ),
-                  const SizedBox(height: 4),
-                  Text(
-                    'TextClock 驱动 · 零功耗走秒 · M1 全链路验证组件',
-                    style: Theme.of(context).textTheme.bodySmall,
-                  ),
-                  const Divider(height: 24),
-                  TextField(
-                    controller: _extraController,
-                    decoration: const InputDecoration(
-                      labelText: '组件副标题（数据桥验证）',
-                      hintText: '输入内容后点"保存并更新到桌面"',
-                      border: OutlineInputBorder(),
-                      isDense: true,
-                    ),
-                  ),
-                  const SizedBox(height: 12),
-                  Row(
-                    children: [
-                      FilledButton.icon(
-                        onPressed: _syncToHome,
-                        icon: const Icon(Icons.sync, size: 18),
-                        label: const Text('保存并更新到桌面'),
-                      ),
-                      const Spacer(),
-                      TextButton.icon(
-                        onPressed: _requestPin,
-                        icon: const Icon(Icons.add, size: 18),
-                        label: const Text('添加到桌面'),
-                      ),
-                    ],
-                  ),
-                  if (_lastSyncAt != null)
-                    Text(
-                      '最后刷新：${_lastSyncAt!.toIso8601String().substring(11, 19)}',
-                      style: Theme.of(context).textTheme.bodySmall,
-                    ),
-                  if (_lastError != null)
-                    Text(
-                      '最近错误：$_lastError',
-                      style: TextStyle(color: scheme.error, fontSize: 12),
-                    ),
-                ],
-              ),
-            ),
+          _ClockWidgetCard(
+            config: _config,
+            pinned: _pinnedOnHome,
+            lastSyncAt: _lastSyncAt,
+            onTap: _openClockConfig,
+            onPin: _requestPin,
+          ),
+          const SizedBox(height: 16),
+          const _PlannedWidgetCard(
+            icon: Icons.thermostat,
+            title: '环境监视器',
+            subtitle: 'CPU 频率 · 温度 · 内存（Root 数据源已就绪，M4 上桌）',
           ),
           const SizedBox(height: 16),
           const _RootProbeCard(),
           const SizedBox(height: 16),
           Text(
-            'M1：Flutter 工程 + home_widget 接通 + 数字时钟上桌\n'
+            'M1：数字时钟上桌（TextClock 零功耗走秒）\n'
             'M2：libsu root 数据源验证（白名单只读命令）\n'
-            '时钟链路：桌面添加 → 更新 → 点击（点组件跳回本 App）',
+            'M3：组件卡片页 + 配置页 + 主题系统',
             style: Theme.of(context).textTheme.bodySmall,
           ),
         ],
+      ),
+    );
+  }
+}
+
+/// 数字时钟组件卡片：实时预览 + 状态徽章，点击进入配置页。
+class _ClockWidgetCard extends StatelessWidget {
+  const _ClockWidgetCard({
+    required this.config,
+    required this.pinned,
+    required this.lastSyncAt,
+    required this.onTap,
+    required this.onPin,
+  });
+
+  final ClockConfig config;
+  final bool pinned;
+  final DateTime? lastSyncAt;
+  final VoidCallback onTap;
+  final VoidCallback onPin;
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    final syncLabel = lastSyncAt == null
+        ? '尚未同步'
+        : '最后同步 ${lastSyncAt!.toIso8601String().substring(11, 19)}';
+    return Card(
+      clipBehavior: Clip.antiAlias,
+      child: InkWell(
+        onTap: onTap,
+        child: Padding(
+          padding: const EdgeInsets.all(16),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  Icon(Icons.schedule, color: scheme.primary),
+                  const SizedBox(width: 8),
+                  const Text(
+                    '数字时钟',
+                    style: TextStyle(fontSize: 17, fontWeight: FontWeight.w600),
+                  ),
+                  const Spacer(),
+                  _PinnedBadge(pinned: pinned),
+                  const SizedBox(width: 4),
+                  Icon(
+                    Icons.chevron_right,
+                    size: 20,
+                    color: scheme.onSurfaceVariant,
+                  ),
+                ],
+              ),
+              const SizedBox(height: 4),
+              Text(
+                'TextClock 驱动 · 零功耗走秒 · 点击卡片配置样式',
+                style: Theme.of(context).textTheme.bodySmall,
+              ),
+              const SizedBox(height: 12),
+              ClockPreview(config: config),
+              const SizedBox(height: 10),
+              Row(
+                children: [
+                  Text(syncLabel, style: Theme.of(context).textTheme.bodySmall),
+                  const Spacer(),
+                  TextButton.icon(
+                    onPressed: onPin,
+                    icon: const Icon(Icons.add, size: 18),
+                    label: const Text('添加到桌面'),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// 规划中的组件占位卡。
+class _PlannedWidgetCard extends StatelessWidget {
+  const _PlannedWidgetCard({
+    required this.icon,
+    required this.title,
+    required this.subtitle,
+  });
+
+  final IconData icon;
+  final String title;
+  final String subtitle;
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Row(
+          children: [
+            Icon(icon, color: scheme.onSurfaceVariant.withValues(alpha: 0.6)),
+            const SizedBox(width: 8),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    title,
+                    style: TextStyle(
+                      fontSize: 17,
+                      fontWeight: FontWeight.w600,
+                      color: scheme.onSurface.withValues(alpha: 0.72),
+                    ),
+                  ),
+                  const SizedBox(height: 2),
+                  Text(subtitle, style: Theme.of(context).textTheme.bodySmall),
+                ],
+              ),
+            ),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+              decoration: BoxDecoration(
+                color: scheme.surfaceContainerHighest.withValues(alpha: 0.5),
+                borderRadius: BorderRadius.circular(999),
+              ),
+              child: Text(
+                '规划中',
+                style: TextStyle(fontSize: 11, color: scheme.onSurfaceVariant),
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
