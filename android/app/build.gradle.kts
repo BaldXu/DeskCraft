@@ -34,6 +34,15 @@ android {
     }
 }
 
+repositories {
+    // libsu 发布在 JitPack
+    maven { url = uri("https://jitpack.io") }
+}
+
+dependencies {
+    implementation("com.github.topjohnwu.libsu:core:6.0.0")
+}
+
 kotlin {
     compilerOptions {
         jvmTarget = org.jetbrains.kotlin.gradle.dsl.JvmTarget.JVM_17

@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:home_widget/home_widget.dart';
 
+import 'root_bridge.dart';
+
 void main() {
   WidgetsFlutterBinding.ensureInitialized();
   runApp(const DeskCraftApp());
@@ -86,7 +88,9 @@ class _WorkshopHomePageState extends State<WorkshopHomePage> {
         _kClockExtraTextKey,
         _extraController.text.trim(),
       );
-      final ok = await HomeWidget.updateWidget(androidName: _kClockProviderName);
+      final ok = await HomeWidget.updateWidget(
+        androidName: _kClockProviderName,
+      );
       if (!mounted) return;
       if (ok == true) {
         setState(() => _lastSyncAt = DateTime.now());
@@ -137,7 +141,13 @@ class _WorkshopHomePageState extends State<WorkshopHomePage> {
                     children: [
                       Icon(Icons.schedule, color: scheme.primary),
                       const SizedBox(width: 8),
-                      const Text('数字时钟', style: TextStyle(fontSize: 17, fontWeight: FontWeight.w600)),
+                      const Text(
+                        '数字时钟',
+                        style: TextStyle(
+                          fontSize: 17,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
                       const Spacer(),
                       _PinnedBadge(pinned: _pinnedOnHome),
                     ],
@@ -188,13 +198,195 @@ class _WorkshopHomePageState extends State<WorkshopHomePage> {
             ),
           ),
           const SizedBox(height: 16),
+          const _RootProbeCard(),
+          const SizedBox(height: 16),
           Text(
-            'M1 里程碑：Flutter 工程 + home_widget 接通 + 数字时钟上桌\n'
-            '验证链路：桌面添加 → 更新 → 点击（点组件跳回本 App）',
+            'M1：Flutter 工程 + home_widget 接通 + 数字时钟上桌\n'
+            'M2：libsu root 数据源验证（白名单只读命令）\n'
+            '时钟链路：桌面添加 → 更新 → 点击（点组件跳回本 App）',
             style: Theme.of(context).textTheme.bodySmall,
           ),
         ],
       ),
+    );
+  }
+}
+
+/// Root 数据源验证卡片（M2）——进入页面自动探测一次。
+class _RootProbeCard extends StatefulWidget {
+  const _RootProbeCard();
+
+  @override
+  State<_RootProbeCard> createState() => _RootProbeCardState();
+}
+
+class _RootProbeCardState extends State<_RootProbeCard> {
+  RootProbe? _probe;
+  bool _probing = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _refresh();
+  }
+
+  Future<void> _refresh() async {
+    if (_probing) return;
+    setState(() => _probing = true);
+    final result = await RootBridge.probe();
+    if (!mounted) return;
+    setState(() {
+      _probe = result;
+      _probing = false;
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    final probe = _probe;
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Icon(Icons.memory, color: scheme.primary),
+                const SizedBox(width: 8),
+                const Text(
+                  'Root 数据源（M2）',
+                  style: TextStyle(fontSize: 17, fontWeight: FontWeight.w600),
+                ),
+                const Spacer(),
+                if (probe != null) _RootBadge(probe: probe),
+                IconButton(
+                  onPressed: _probing ? null : _refresh,
+                  icon: const Icon(Icons.refresh, size: 20),
+                ),
+              ],
+            ),
+            const SizedBox(height: 4),
+            Text(
+              'libsu · 白名单只读命令 · 读 sysfs 温度 / CPU 频率',
+              style: Theme.of(context).textTheme.bodySmall,
+            ),
+            const Divider(height: 24),
+            if (_probing && probe == null)
+              const Padding(
+                padding: EdgeInsets.symmetric(vertical: 8),
+                child: Text('探测中…（首次会触发 Magisk 授权弹窗，请选择允许）'),
+              )
+            else if (probe == null)
+              const Text('尚未探测')
+            else
+              _RootProbeBody(probe: probe),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _RootProbeBody extends StatelessWidget {
+  const _RootProbeBody({required this.probe});
+
+  final RootProbe probe;
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    final bodySmall = Theme.of(context).textTheme.bodySmall;
+
+    if (!probe.rooted) {
+      return Padding(
+        padding: const EdgeInsets.symmetric(vertical: 8),
+        child: Text(
+          probe.error ?? '未获取 root 授权',
+          style: TextStyle(color: scheme.error, fontSize: 13),
+        ),
+      );
+    }
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text('CPU 实时频率（${probe.cpuFreqsKHz.length} 核）', style: bodySmall),
+        const SizedBox(height: 6),
+        Wrap(
+          spacing: 6,
+          runSpacing: 6,
+          children: [
+            for (var i = 0; i < probe.cpuFreqsKHz.length; i++)
+              _MiniChip(label: 'C$i ${_fmtMhz(probe.cpuFreqsKHz[i])}'),
+          ],
+        ),
+        const SizedBox(height: 14),
+        Text('热区温度（${probe.thermalZones.length} 个）', style: bodySmall),
+        const SizedBox(height: 6),
+        Wrap(
+          spacing: 6,
+          runSpacing: 6,
+          children: [
+            for (final z in probe.thermalZones)
+              _MiniChip(label: '${z.type} ${z.celsius.toStringAsFixed(1)}℃'),
+          ],
+        ),
+        const SizedBox(height: 14),
+        if (probe.memInfoKb.containsKey('MemTotal'))
+          Text(
+            '内存：可用 ${((probe.memInfoKb['MemAvailable'] ?? 0) / 1048576).toStringAsFixed(2)} GB / '
+            '共 ${((probe.memInfoKb['MemTotal'] ?? 0) / 1048576).toStringAsFixed(2)} GB',
+            style: bodySmall,
+          ),
+        if (probe.tookMs != null)
+          Text('探测耗时 ${probe.tookMs}ms', style: bodySmall),
+      ],
+    );
+  }
+
+  String _fmtMhz(int kHz) =>
+      kHz >= 1000 ? '${(kHz / 1000).round()}MHz' : '${kHz}kHz';
+}
+
+class _RootBadge extends StatelessWidget {
+  const _RootBadge({required this.probe});
+
+  final RootProbe probe;
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    final (label, color) = probe.rooted
+        ? ('已授权', scheme.primary)
+        : ('无 root', scheme.error);
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.15),
+        borderRadius: BorderRadius.circular(999),
+      ),
+      child: Text(label, style: TextStyle(fontSize: 11, color: color)),
+    );
+  }
+}
+
+class _MiniChip extends StatelessWidget {
+  const _MiniChip({required this.label});
+
+  final String label;
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      decoration: BoxDecoration(
+        color: scheme.surfaceContainerHighest.withValues(alpha: 0.5),
+        borderRadius: BorderRadius.circular(6),
+      ),
+      child: Text(label, style: const TextStyle(fontSize: 11)),
     );
   }
 }
