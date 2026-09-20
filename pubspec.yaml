@@ -18,6 +18,21 @@ dev_dependencies:
   flutter_test:
     sdk: flutter
   flutter_lints: ^6.0.0
+  flutter_launcher_icons: ^0.14.4
+
+# App 图标生成：`fvm dart run flutter_launcher_icons`
+# 注意：flutter_launcher_icons 0.14.4 的 bug 会把 adaptive_icon_background 的图片路径
+# 写进 values/colors.xml 当作颜色值导致 AAPT2 编译失败。重新生成图标后需手工修正：
+# 1) 删除 values/colors.xml 中的 ic_launcher_background 行；
+# 2) mipmap-anydpi-v26/ic_launcher.xml 的 background 改为 @drawable/ic_launcher_background
+#    （背景图位于 drawable-nodpi/ic_launcher_background.jpg）。
+flutter_launcher_icons:
+  android: true
+  ios: false
+  min_sdk_android: 21
+  image_path: assets/icon/app_icon_background.jpeg
+  adaptive_icon_background: assets/icon/app_icon_background.jpeg
+  adaptive_icon_foreground: assets/icon/app_icon_foreground.png
 
 flutter:
   uses-material-design: true

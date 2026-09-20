@@ -5,6 +5,7 @@ import 'pages/custom_widget_collection_page.dart';
 import 'pages/monitor_collection_page.dart';
 import 'services/custom_widget_callback.dart';
 import 'theme/app_theme.dart';
+import 'widgets/app_page_route.dart';
 
 void main() {
   WidgetsFlutterBinding.ensureInitialized();
@@ -32,7 +33,7 @@ class WorkshopHomePage extends StatelessWidget {
   const WorkshopHomePage({super.key});
 
   void _openCategory(BuildContext context, Widget page) {
-    Navigator.of(context).push(MaterialPageRoute<void>(builder: (_) => page));
+    Navigator.of(context).push(AppPageRoute<void>(builder: (_) => page));
   }
 
   @override

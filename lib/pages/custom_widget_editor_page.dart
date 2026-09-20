@@ -14,6 +14,7 @@ import '../editor/layout_preview.dart';
 import '../formula/formula_context.dart';
 import '../services/custom_widget_store.dart';
 import '../widgets/layer_property_editor.dart';
+import '../widgets/parameter_sheet.dart';
 
 /// 自定义组件编辑器页面。
 ///
@@ -411,27 +412,28 @@ class _CustomWidgetEditorPageState extends State<CustomWidgetEditorPage> {
   }
 
   Future<void> _showAddLayerSheet() async {
-    final type = await showModalBottomSheet<LayerType>(
+    final type = await showParameterSheet<LayerType>(
       context: context,
-      showDragHandle: true,
-      builder: (context) => SafeArea(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            ListTile(
-              leading: const Icon(Icons.crop_square),
-              title: const Text('矩形'),
-              subtitle: const Text('纯色填充 + 圆角'),
-              onTap: () => Navigator.of(context).pop(LayerType.rect),
-            ),
-            ListTile(
-              leading: const Icon(Icons.text_fields),
-              title: const Text('文本'),
-              subtitle: const Text('支持 \$公式\$ 模板'),
-              onTap: () => Navigator.of(context).pop(LayerType.text),
-            ),
-          ],
-        ),
+      builder: (context) => ListView(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 24),
+        children: [
+          Padding(
+            padding: const EdgeInsets.only(bottom: 8),
+            child: Text('添加图层', style: Theme.of(context).textTheme.titleMedium),
+          ),
+          ListTile(
+            leading: const Icon(Icons.crop_square),
+            title: const Text('矩形'),
+            subtitle: const Text('纯色填充 + 圆角'),
+            onTap: () => Navigator.of(context).pop(LayerType.rect),
+          ),
+          ListTile(
+            leading: const Icon(Icons.text_fields),
+            title: const Text('文本'),
+            subtitle: const Text('支持 \$公式\$ 模板'),
+            onTap: () => Navigator.of(context).pop(LayerType.text),
+          ),
+        ],
       ),
     );
     if (type != null) _addLayer(type);

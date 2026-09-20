@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../editor/layout_model.dart';
 import '../editor/layout_preview.dart';
 import '../services/custom_widget_store.dart';
+import '../widgets/app_page_route.dart';
 import 'custom_widget_editor_page.dart';
 
 /// 自定义组件类目页 —— 布局库管理（新建 / 编辑 / 删除）。
@@ -35,7 +36,7 @@ class _CustomWidgetCollectionPageState
 
   Future<void> _openEditor([WidgetLayout? initial]) async {
     await Navigator.of(context).push<void>(
-      MaterialPageRoute<void>(
+      AppPageRoute<void>(
         builder: (_) => CustomWidgetEditorPage(initial: initial),
       ),
     );

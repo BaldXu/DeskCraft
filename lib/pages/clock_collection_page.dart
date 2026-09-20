@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../models/clock_config.dart';
 import '../services/clock_config_store.dart';
 import '../services/widget_pin_service.dart';
+import '../widgets/app_page_route.dart';
 import '../widgets/clock_preview.dart';
 import '../widgets/widget_entry_cards.dart';
 import 'clock_config_page.dart';
@@ -43,9 +44,7 @@ class _ClockCollectionPageState extends State<ClockCollectionPage> {
 
   Future<void> _openConfig() async {
     await Navigator.of(context).push<bool>(
-      MaterialPageRoute<bool>(
-        builder: (_) => ClockConfigPage(initial: _config),
-      ),
+      AppPageRoute<bool>(builder: (_) => ClockConfigPage(initial: _config)),
     );
     await _reload();
   }

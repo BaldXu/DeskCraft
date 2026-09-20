@@ -4,6 +4,7 @@ import '../models/monitor_config.dart';
 import '../root_bridge.dart';
 import '../services/monitor_config_store.dart';
 import '../services/widget_pin_service.dart';
+import '../widgets/app_page_route.dart';
 import '../widgets/monitor_preview.dart';
 import '../widgets/widget_entry_cards.dart';
 import 'monitor_config_page.dart';
@@ -44,9 +45,7 @@ class _MonitorCollectionPageState extends State<MonitorCollectionPage> {
 
   Future<void> _openConfig() async {
     await Navigator.of(context).push<bool>(
-      MaterialPageRoute<bool>(
-        builder: (_) => MonitorConfigPage(initial: _config),
-      ),
+      AppPageRoute<bool>(builder: (_) => MonitorConfigPage(initial: _config)),
     );
     await _reload();
   }
