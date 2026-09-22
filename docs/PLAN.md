@@ -110,7 +110,12 @@ Flutter 负责：数据计算、UI 样式、配置/编辑器、把内容渲染�
     - `custom_widget_collection_page.dart`：类目页（布局库管理，新建/编辑/删除）+ 首页真实入口（替换占位卡）
     - 原生壳：`CustomWidgetProvider.kt`（位图 decodeFile 塞 ImageView fitXY + fallback 兜底 + AlarmManager 按 refreshSeconds 调度 + 采样写入变量快照 KEY_VARS_JSON → HomeWidgetBackgroundIntent 触发后台回调）+ `custom_widget.xml` + `custom_widget_info.xml` + manifest（CustomWidgetProvider + HomeWidgetBackgroundReceiver 声明）
     - **修 bug**：libsu `Shell.setDefaultBuilder` 进程内仅允许一次，RootDataSource/MonitorDataSource 各自 init 调用导致 widget receiver 唤醒时崩溃（IllegalStateException）→ 收敛到 `ShellConfig.ensure()` 幂等单点
-- **下一步（M6 ③）**：全局变量（用户自定义 key/value + 公式引用）与触控（图层点击事件）；可选：编辑器多布局管理增强
+- **M6 ③ 全局变量已落地（2026-09-22）**：
+  - `lib/models/global_var.dart`：GV 模型（文本/数字/开关/公式四型，值统一字符串存储），key 校验（`^[a-zA-Z_][a-zA-Z0-9_]*$`，禁止与系统变量/函数名重名）
+  - `lib/services/global_var_store.dart`：SharedPreferences 持久化 + `resolveAll` 递归解析（公式型变量按引用关系求值，循环引用/语法错误回落 null，深度上限 12）+ 刷新周期合并（只统计被布局模板实际引用的公式型 GV）
+  - `lib/pages/global_vars_page.dart`：管理页（列表/新建/编辑/删除/使用说明），表单含公式型实时求值预览；保存后自动 `refreshDesktop()` 重渲染上桌组件
+  - 接入点：`CustomWidgetStore.renderContext()` 注入已解析 GV（编辑器预览 / pushToDesktop / 后台回调共用）；上桌刷新周期改用 `effectiveRefreshSecondsFor`（秒级 GV 引用不再被误判为 3600）；属性面板公式 chips 追加「全局变量」分组；编辑器 AppBar + 自定义组件类目页 AppBar 双入口
+- **下一步（M6 ④）**：触控——图层绑定点击动作（开 App / 开链接），需原生 CustomWidgetProvider 加 PendingIntent 转发；可选：编辑器多布局管理增强、GV 颜色类型（需图层颜色属性公式化）
 - **挂起**：M5 悬浮窗（暂缓）、M4 日历组件（跳过）
 - **环境**：fvm Flutter 3.44.8；验证命令 `fvm flutter analyze`、`fvm flutter build apk --debug` + `adb install -r`
 - **配置 JSON 兼容约定**：改字段结构时保留旧扁平 key 双写（原生 provider 宽松解析缺省回落），新结构逐步迁移

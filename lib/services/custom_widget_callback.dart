@@ -16,7 +16,6 @@ import 'package:home_widget/home_widget.dart';
 
 import '../editor/layout_bitmap.dart';
 import '../editor/layout_model.dart';
-import '../formula/formula_context.dart';
 import 'custom_widget_store.dart';
 
 /// 后台回调入口：重渲染激活布局并推送上桌。
@@ -39,10 +38,14 @@ Future<void> customWidgetBackgroundCallback(Uri? uri) async {
   final dpr =
       await HomeWidget.getWidgetData<double>(CustomWidgetStore.widgetDprKey) ??
       3.0;
-  final vars = await CustomWidgetStore.loadWidgetVars();
-  final context = FormulaContext(now: DateTime.now(), variables: vars);
+  // 读取最近采样变量 + 全局变量，构造渲染上下文
+  final context = await CustomWidgetStore.renderContext();
 
-  final bytes = await exportLayoutPng(layout, context: context, pixelRatio: dpr);
+  final bytes = await exportLayoutPng(
+    layout,
+    context: context,
+    pixelRatio: dpr,
+  );
   if (bytes == null) return;
 
   // saveFile 内部会把新路径写入 widgetBitmapKey

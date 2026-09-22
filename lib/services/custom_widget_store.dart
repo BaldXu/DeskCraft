@@ -18,6 +18,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../editor/layout_bitmap.dart';
 import '../editor/layout_model.dart';
 import '../formula/formula_context.dart';
+import 'global_var_store.dart';
 
 /// 原生采样快照 → 公式变量名的映射（key 与 MonitorDataSource 输出对齐）。
 const Map<String, String> _nativeVarMapping = {
@@ -117,10 +118,15 @@ class CustomWidgetStore {
     }
   }
 
-  /// 构造渲染上下文：当前时间 + 最近采样变量。
+  /// 构造渲染上下文：当前时间 + 最近采样变量 + 已解析的全局变量。
   static Future<FormulaContext> renderContext() async {
     final vars = await loadWidgetVars();
-    return FormulaContext(now: DateTime.now(), variables: vars);
+    final globals = await GlobalVarStore.loadResolvedGlobals(variables: vars);
+    return FormulaContext(
+      now: DateTime.now(),
+      variables: vars,
+      globals: globals,
+    );
   }
 
   // ---- 上桌推送 ----
@@ -157,13 +163,33 @@ class CustomWidgetStore {
     await HomeWidget.saveWidgetData<double>(widgetDprKey, dpr);
     await HomeWidget.saveWidgetData<int>(
       widgetRefreshKey,
-      layout.refreshSeconds,
+      await GlobalVarStore.effectiveRefreshSecondsFor(layout),
     );
 
     final ok = await HomeWidget.updateWidget(
       androidName: 'CustomWidgetProvider',
     );
     return ok == true;
+  }
+
+  /// 用当前（最新）全局变量与采样重新渲染「激活布局」并推送桌面。
+  ///
+  /// 全局变量编辑后调用：让桌面组件立即反映最新值，不必等下一次 Alarm 刷新。
+  /// 没有激活布局时返回 false。
+  static Future<bool> refreshDesktop() async {
+    final layoutJson = await HomeWidget.getWidgetData<String>(widgetLayoutKey);
+    if (layoutJson == null || layoutJson.isEmpty) return false;
+    WidgetLayout layout;
+    try {
+      layout = WidgetLayout.fromJsonString(layoutJson);
+    } catch (_) {
+      return false;
+    }
+    final dpr =
+        await HomeWidget.getWidgetData<double>(widgetDprKey) ??
+        ui.PlatformDispatcher.instance.implicitView?.devicePixelRatio ??
+        3.0;
+    return pushToDesktop(layout, pixelRatio: dpr);
   }
 
   // ---- 默认布局 ----

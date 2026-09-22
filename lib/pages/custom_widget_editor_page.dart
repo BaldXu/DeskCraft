@@ -12,9 +12,13 @@ import 'package:flutter/material.dart';
 import '../editor/layout_model.dart';
 import '../editor/layout_preview.dart';
 import '../formula/formula_context.dart';
+import '../models/global_var.dart';
 import '../services/custom_widget_store.dart';
+import '../services/global_var_store.dart';
 import '../widgets/layer_property_editor.dart';
 import '../widgets/parameter_sheet.dart';
+import '../widgets/app_page_route.dart';
+import 'global_vars_page.dart';
 
 /// 自定义组件编辑器页面。
 ///
@@ -37,6 +41,9 @@ class _CustomWidgetEditorPageState extends State<CustomWidgetEditorPage> {
 
   FormulaContext? _previewContext;
 
+  /// 当前已定义的全局变量（属性面板 chips 用）。
+  List<GlobalVar> _globals = const [];
+
   @override
   void initState() {
     super.initState();
@@ -52,7 +59,22 @@ class _CustomWidgetEditorPageState extends State<CustomWidgetEditorPage> {
 
   Future<void> _refreshPreviewContext() async {
     final ctx = await CustomWidgetStore.renderContext();
-    if (mounted) setState(() => _previewContext = ctx);
+    final globals = await GlobalVarStore.loadAll();
+    if (mounted) {
+      setState(() {
+        _previewContext = ctx;
+        _globals = globals;
+      });
+    }
+  }
+
+  Future<void> _openGlobalVars() async {
+    await Navigator.of(
+      context,
+    ).push<void>(AppPageRoute<void>(builder: (_) => const GlobalVarsPage()));
+    // 返回后全局变量可能已变，重载预览上下文
+    await _refreshPreviewContext();
+    if (mounted) setState(() {});
   }
 
   @override
@@ -230,6 +252,11 @@ class _CustomWidgetEditorPageState extends State<CustomWidgetEditorPage> {
         ),
         actions: [
           IconButton(
+            tooltip: '全局变量',
+            icon: const Icon(Icons.functions),
+            onPressed: _openGlobalVars,
+          ),
+          IconButton(
             tooltip: '保存',
             icon: const Icon(Icons.save_outlined),
             onPressed: _busy ? null : () => _save(),
@@ -266,6 +293,7 @@ class _CustomWidgetEditorPageState extends State<CustomWidgetEditorPage> {
                         _buildLayerList(),
                         LayerPropertyEditor(
                           layer: _selected,
+                          globals: _globals,
                           onChanged: () => setState(() {}),
                         ),
                       ],

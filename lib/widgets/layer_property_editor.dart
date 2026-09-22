@@ -8,6 +8,7 @@ import 'package:flutter/services.dart';
 
 import '../editor/layout_model.dart';
 import '../formula/formula_engine.dart';
+import '../models/global_var.dart';
 
 /// 预设色板（ARGB），覆盖常用深浅色。
 const List<int> _presetColors = [
@@ -27,10 +28,14 @@ class LayerPropertyEditor extends StatelessWidget {
     super.key,
     required this.layer,
     required this.onChanged,
+    this.globals = const [],
   });
 
   final LayoutLayer? layer;
   final VoidCallback onChanged;
+
+  /// 当前已定义的全局变量（追加到系统变量 chips 之后，用于快捷插入）。
+  final List<GlobalVar> globals;
 
   @override
   Widget build(BuildContext context) {
@@ -187,9 +192,9 @@ class LayerPropertyEditor extends StatelessWidget {
     );
   }
 
-  /// 变量快捷插入 chips。
+  /// 变量快捷插入 chips：系统变量 + 全局变量（分组展示）。
   Widget _variableChips(BuildContext context, TextLayer layer) {
-    final chips = FormulaEngine.knownVariables.entries
+    final systemChips = FormulaEngine.knownVariables.entries
         .map(
           (e) => ActionChip(
             label: Text(e.key),
@@ -201,7 +206,31 @@ class LayerPropertyEditor extends StatelessWidget {
           ),
         )
         .toList();
-    return Wrap(spacing: 6, runSpacing: 6, children: chips);
+    if (globals.isEmpty) {
+      return Wrap(spacing: 6, runSpacing: 6, children: systemChips);
+    }
+    final gvChips = globals
+        .map(
+          (g) => ActionChip(
+            label: Text(g.key),
+            tooltip: '全局变量 · ${g.type.label}',
+            onPressed: () {
+              layer.template = '${layer.template}\$${g.key}\$';
+              onChanged();
+            },
+          ),
+        )
+        .toList();
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Wrap(spacing: 6, runSpacing: 6, children: systemChips),
+        const SizedBox(height: 6),
+        Text('全局变量', style: Theme.of(context).textTheme.labelSmall),
+        const SizedBox(height: 4),
+        Wrap(spacing: 6, runSpacing: 6, children: gvChips),
+      ],
+    );
   }
 
   // ---- 公共小部件 ----

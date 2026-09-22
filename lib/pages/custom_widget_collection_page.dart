@@ -5,6 +5,7 @@ import '../editor/layout_preview.dart';
 import '../services/custom_widget_store.dart';
 import '../widgets/app_page_route.dart';
 import 'custom_widget_editor_page.dart';
+import 'global_vars_page.dart';
 
 /// 自定义组件类目页 —— 布局库管理（新建 / 编辑 / 删除）。
 ///
@@ -43,6 +44,13 @@ class _CustomWidgetCollectionPageState
     await _reload();
   }
 
+  Future<void> _openGlobalVars() async {
+    await Navigator.of(
+      context,
+    ).push<void>(AppPageRoute<void>(builder: (_) => const GlobalVarsPage()));
+    await _reload();
+  }
+
   Future<void> _confirmDelete(WidgetLayout layout) async {
     final ok = await showDialog<bool>(
       context: context,
@@ -70,7 +78,16 @@ class _CustomWidgetCollectionPageState
   Widget build(BuildContext context) {
     final textTheme = Theme.of(context).textTheme;
     return Scaffold(
-      appBar: AppBar(title: const Text('自定义组件')),
+      appBar: AppBar(
+        title: const Text('自定义组件'),
+        actions: [
+          IconButton(
+            tooltip: '全局变量',
+            icon: const Icon(Icons.functions),
+            onPressed: () => _openGlobalVars(),
+          ),
+        ],
+      ),
       floatingActionButton: FloatingActionButton.extended(
         onPressed: () => _openEditor(),
         icon: const Icon(Icons.add),

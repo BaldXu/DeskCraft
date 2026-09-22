@@ -366,6 +366,27 @@ abstract final class FormulaEngine {
     );
   }
 
+  /// 解析单个表达式源码，返回其引用的变量名集合（供全局变量依赖分析用）。
+  /// 语法错误的表达式返回空集。
+  static Set<String> usedVariables(String source) {
+    final out = <String>{};
+    try {
+      _collectVars(parseFormula(source), out);
+    } catch (_) {
+      // 语法错误忽略
+    }
+    return out;
+  }
+
+  /// 解析模板（含 `$...$` 片段），返回所有片段引用的变量名并集。
+  static Set<String> usedVariablesInTemplate(String template) {
+    final out = <String>{};
+    for (final source in _extractSpans(template)) {
+      out.addAll(usedVariables(source));
+    }
+    return out;
+  }
+
   /// 按模板里引用的变量/函数推断最小刷新周期（秒），供原生 AlarmManager 调度。
   /// 静态模板返回 3600（1 小时兜底），最快 1 秒。
   static int analyzeRefreshSeconds(String template) {
