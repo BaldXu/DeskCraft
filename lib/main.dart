@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
 
+import 'pages/calendar_collection_page.dart';
 import 'pages/clock_collection_page.dart';
 import 'pages/custom_widget_collection_page.dart';
 import 'pages/monitor_collection_page.dart';
+import 'services/calendar_callback.dart';
 import 'services/custom_widget_callback.dart';
 import 'theme/app_theme.dart';
 import 'widgets/app_page_route.dart';
@@ -10,6 +12,7 @@ import 'widgets/app_page_route.dart';
 void main() {
   WidgetsFlutterBinding.ensureInitialized();
   registerCustomWidgetBackgroundCallback();
+  registerCalendarBackgroundCallback();
   runApp(const DeskCraftApp());
 }
 
@@ -65,15 +68,15 @@ class WorkshopHomePage extends StatelessWidget {
             count: 1,
             onTap: () => _openCategory(context, const MonitorCollectionPage()),
           ),
-          const SizedBox(height: 24),
-          Text('规划中', style: textTheme.titleSmall),
-          const SizedBox(height: 8),
-          const _PlannedWidgetCard(
-            icon: Icons.calendar_month,
-            title: '日历组件',
-            subtitle: '月视图 · 上桌即用 · 样式可定制',
-          ),
           const SizedBox(height: 12),
+          _CategoryCard(
+            icon: Icons.calendar_month,
+            title: '日历',
+            subtitle: '月视图 · 农历节气 · 系统日历节日/纪念日 · 翻日即时更新',
+            count: 1,
+            onTap: () => _openCategory(context, const CalendarCollectionPage()),
+          ),
+          const SizedBox(height: 24),
           _CategoryCard(
             icon: Icons.design_services,
             title: '自定义组件',
@@ -166,74 +169,6 @@ class _CategoryCard extends StatelessWidget {
               ),
             ],
           ),
-        ),
-      ),
-    );
-  }
-}
-
-/// 规划中的组件占位卡：与类目入口卡同构但弱化视觉，预留未来扩展位。
-class _PlannedWidgetCard extends StatelessWidget {
-  const _PlannedWidgetCard({
-    required this.icon,
-    required this.title,
-    required this.subtitle,
-  });
-
-  final IconData icon;
-  final String title;
-  final String subtitle;
-
-  @override
-  Widget build(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Row(
-          children: [
-            Container(
-              width: 44,
-              height: 44,
-              decoration: BoxDecoration(
-                color: scheme.surfaceContainerHighest.withValues(alpha: 0.4),
-                borderRadius: BorderRadius.circular(12),
-              ),
-              child: Icon(
-                icon,
-                color: scheme.onSurfaceVariant.withValues(alpha: 0.6),
-              ),
-            ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    title,
-                    style: TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.w600,
-                      color: scheme.onSurface.withValues(alpha: 0.72),
-                    ),
-                  ),
-                  const SizedBox(height: 2),
-                  Text(subtitle, style: Theme.of(context).textTheme.bodySmall),
-                ],
-              ),
-            ),
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-              decoration: BoxDecoration(
-                color: scheme.surfaceContainerHighest.withValues(alpha: 0.5),
-                borderRadius: BorderRadius.circular(999),
-              ),
-              child: Text(
-                '规划中',
-                style: TextStyle(fontSize: 11, color: scheme.onSurfaceVariant),
-              ),
-            ),
-          ],
         ),
       ),
     );

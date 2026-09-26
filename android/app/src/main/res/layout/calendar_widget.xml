@@ -1,0 +1,38 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- 日历 widget 布局（V1）。
+
+     内容由 Flutter 侧 CalendarPainter 渲染成整幅 PNG 位图（月网格 + 农历/
+     节气 + 系统日历事件），经 home_widget 落盘后由 CalendarWidgetProvider
+     塞进 calendar_image，fitXY 适配 widget 实际尺寸（渲染时已按实际尺寸
+     出图，拉伸比为 1:1）；位图缺失时显示 fallback 提示。 -->
+<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/calendar_root"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent">
+
+    <ImageView
+        android:id="@+id/calendar_image"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:contentDescription="@null"
+        android:scaleType="fitXY"
+        android:visibility="gone" />
+
+    <LinearLayout
+        android:id="@+id/calendar_fallback"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:background="#F0101018"
+        android:gravity="center"
+        android:orientation="vertical">
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:drawablePadding="6dp"
+            android:gravity="center"
+            android:text="打开 App 配置日历"
+            android:textColor="@color/widget_secondary"
+            android:textSize="13sp" />
+    </LinearLayout>
+</FrameLayout>

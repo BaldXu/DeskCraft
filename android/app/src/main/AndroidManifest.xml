@@ -4,6 +4,9 @@
          未授予时 Provider 自动回落 setAndAllowWhileIdle（非精确，Doze 节流）。 -->
     <uses-permission android:name="android.permission.SCHEDULE_EXACT_ALARM" />
 
+    <!-- 日历组件读取系统日历事件（节日/纪念日，零维护数据源），运行时申请。 -->
+    <uses-permission android:name="android.permission.READ_CALENDAR" />
+
     <application
         android:label="DeskCraft"
         android:name="${applicationName}"
@@ -57,6 +60,32 @@
             <meta-data
                 android:name="android.appwidget.provider"
                 android:resource="@xml/monitor_widget_info" />
+        </receiver>
+
+        <!-- 日历桌面组件（V1）：位图渲染 + 系统日历事件 + 翻日即时更新。
+             监听日期/时区变更与日历数据变更，另有午夜兜底闹钟。 -->
+        <receiver
+            android:name=".CalendarWidgetProvider"
+            android:exported="false"
+            android:label="日历">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+                <action android:name="com.deskcraft.desk_craft.CALENDAR_REFRESH" />
+            </intent-filter>
+            <intent-filter>
+                <action android:name="android.intent.action.DATE_CHANGED" />
+                <action android:name="android.intent.action.TIME_SET" />
+                <action android:name="android.intent.action.TIMEZONE_CHANGED" />
+            </intent-filter>
+            <intent-filter>
+                <action android:name="android.intent.action.PROVIDER_CHANGED" />
+                <data
+                    android:host="com.android.calendar"
+                    android:scheme="content" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/calendar_widget_info" />
         </receiver>
 
         <!-- 自定义组件桌面组件（M6）：展示 Flutter 图层画布渲染的位图，
