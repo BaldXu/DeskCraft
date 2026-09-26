@@ -44,6 +44,10 @@ class CustomWidgetStore {
   /// widget 桥：刷新周期（秒），原生 AlarmManager 调度用。
   static const String widgetRefreshKey = 'custom_widget_refresh_seconds';
 
+  /// widget 桥：点击热区网格（JSON 字符串数组，长度 = 列×行），
+  /// 每项 `none` / `app:包名` / `url:链接`，原生透明网格层按格索引分发。
+  static const String widgetTapGridKey = 'custom_widget_tap_grid';
+
   /// widget 桥：最近系统采样快照 JSON（原生侧写入，Dart 渲染时读取）。
   static const String widgetVarsKey = 'custom_widget_vars_json';
 
@@ -164,6 +168,11 @@ class CustomWidgetStore {
     await HomeWidget.saveWidgetData<int>(
       widgetRefreshKey,
       await GlobalVarStore.effectiveRefreshSecondsFor(layout),
+    );
+    // 点击热区：Flutter 侧算好每格动作，原生透明网格层按格索引查表分发
+    await HomeWidget.saveWidgetData<String>(
+      widgetTapGridKey,
+      jsonEncode(layout.computeTapGrid()),
     );
 
     final ok = await HomeWidget.updateWidget(

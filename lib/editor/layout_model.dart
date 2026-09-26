@@ -16,12 +16,74 @@ import '../formula/formula_engine.dart';
 /// 图层类型。
 enum LayerType { rect, text }
 
+/// 图层点击动作类型。
+enum TapActionType {
+  /// 不响应（原生回落为打开 App 本体，保持旧行为）。
+  none,
+
+  /// 打开指定包名的 App。
+  app,
+
+  /// 打开 http/https 链接。
+  url,
+}
+
+/// 图层点击动作：点击该图层热区时执行的动作。
+///
+/// [value] 语义随 [type]：app → 包名；url → 完整链接。
+/// 串行化格式（原生侧解析）：`none` / `app:包名` / `url:链接`。
+class TapAction {
+  const TapAction({this.type = TapActionType.none, this.value = ''});
+
+  const TapAction.none() : this();
+
+  final TapActionType type;
+  final String value;
+
+  bool get isActive => type != TapActionType.none && value.trim().isNotEmpty;
+
+  Map<String, Object?> toJson() => {'type': type.name, 'value': value};
+
+  /// 原生侧动作串（与 CustomWidgetProvider.kt 解析格式对齐）。
+  String serialize() {
+    switch (type) {
+      case TapActionType.app:
+        return 'app:${value.trim()}';
+      case TapActionType.url:
+        return 'url:${value.trim()}';
+      case TapActionType.none:
+        return 'none';
+    }
+  }
+
+  static TapAction fromJson(Map<String, Object?>? json) {
+    if (json == null) return const TapAction();
+    final type = switch (json['type']) {
+      'app' => TapActionType.app,
+      'url' => TapActionType.url,
+      _ => TapActionType.none,
+    };
+    return TapAction(
+      type: type,
+      value: json['value'] is String ? json['value'] as String : '',
+    );
+  }
+}
+
 /// 布局 JSON 版本，结构变更时递增。
 const int layoutSchemaVersion = 1;
 
 /// 默认画布尺寸（dp），对应 4×2 格 widget，与原生 REF_WIDTH/HEIGHT 基准一致。
 const double defaultCanvasWidth = 250;
 const double defaultCanvasHeight = 110;
+
+/// 点击热区网格密度（列 × 行 = 40 格）。
+///
+/// 桌面 widget 是原生 RemoteViews，点击拿不到坐标，故用透明网格覆盖层做热区：
+/// 每格一个 View + 独立 PendingIntent，原生侧按 [EXTRA_TAP_CELL] 分发。
+/// 必须与 CustomWidgetProvider.kt 的 GRID_COLS/GRID_ROWS 保持一致。
+const int tapGridCols = 10;
+const int tapGridRows = 4;
 
 /// 图层公共字段。
 sealed class LayoutLayer {
@@ -32,6 +94,7 @@ sealed class LayoutLayer {
     required this.w,
     required this.h,
     this.opacity = 1,
+    this.onTap = const TapAction(),
   });
 
   /// 图层唯一 id（生成后不再变化，编辑器以 id 定位图层）。
@@ -48,6 +111,9 @@ sealed class LayoutLayer {
   /// 不透明度 0~1，1 为完全不透明。
   double opacity;
 
+  /// 点击动作：命中该图层热区时执行（none = 不响应，原生回落打开 App）。
+  TapAction onTap;
+
   LayerType get type;
 
   Map<String, Object?> toJson() {
@@ -59,6 +125,7 @@ sealed class LayoutLayer {
       'w': _num(w),
       'h': _num(h),
       'opacity': _num(opacity),
+      'onTap': onTap.toJson(),
     };
   }
 
@@ -70,6 +137,8 @@ sealed class LayoutLayer {
     w = _readDouble(json, 'w', w);
     h = _readDouble(json, 'h', h);
     opacity = _readDouble(json, 'opacity', opacity).clamp(0, 1).toDouble();
+    final tap = _asMap(json['onTap']);
+    onTap = TapAction.fromJson(tap.isEmpty ? null : tap);
   }
 }
 
@@ -197,6 +266,36 @@ class WidgetLayout {
       if (s < min) min = s;
     }
     return min;
+  }
+
+  /// 计算点击热区网格：把画布等分为 [tapGridCols]×[tapGridRows] 格，
+  /// 每格取中心点做命中测试（顶层优先），返回该格应执行的动作串
+  /// （`none` / `app:包名` / `url:链接`，见 [TapAction.serialize]）。
+  ///
+  /// 原生侧用透明网格覆盖层承接点击，按格索引查这张表分发，
+  /// 因此动作密度受网格粒度限制（10×4 = 40 格，够图层级热区用）。
+  List<String> computeTapGrid() {
+    final cells = <String>[];
+    for (var r = 0; r < tapGridRows; r++) {
+      for (var c = 0; c < tapGridCols; c++) {
+        // 格中心点在画布坐标系中的位置
+        final cx = ((c + 0.5) / tapGridCols) * canvasWidth;
+        final cy = ((r + 0.5) / tapGridRows) * canvasHeight;
+        TapAction? hit;
+        for (final layer in layers.reversed) {
+          if (!layer.onTap.isActive) continue;
+          if (cx >= layer.x &&
+              cx <= layer.x + layer.w &&
+              cy >= layer.y &&
+              cy <= layer.y + layer.h) {
+            hit = layer.onTap;
+            break;
+          }
+        }
+        cells.add(hit?.serialize() ?? 'none');
+      }
+    }
+    return cells;
   }
 
   WidgetLayout copyWith({
